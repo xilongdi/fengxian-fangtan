@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>奉贤房探 · 奉贤区详细规划一张图</title>
+<meta name="description" content="奉贤区详细规划「一张图」：33 万个地块的用地性质、容积率、建筑高度、所属规划与批文号，点击即查。">
+<meta property="og:title" content="奉贤房探 · 奉贤区详细规划一张图">
+<meta property="og:description" content="点击地图任意地块，查看用地性质、容积率、建筑高度、所属控规与批文号。">
+<meta property="og:type" content="website">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <header>
+      <img class="brand" src="logo.svg" alt="奉贤房探" width="181" height="40">
+      <div class="sub">奉贤区详细规划「一张图」</div>
+      <div class="src">数据来源：上海市规划和自然资源局</div>
+    </header>
+
+    <div class="search">
+      <input id="searchBox" type="text" placeholder="搜索地块编号 / 规划名称 / 批文号" autocomplete="off">
+      <div class="hint">仅在当前已加载范围内检索</div>
+      <div id="results"></div>
+    </div>
+
+    <div id="stats"></div>
+    <div id="legend"></div>
+
+    <div class="toggles">
+      <button id="togPlan" class="tg">规划范围线</button>
+      <button id="togBase" class="tg on">底图</button>
+    </div>
+
+    <div class="footnote">
+      数据来源：上海市规划和自然资源局「详细规划一张图（公众版）」<br>
+      仅供查阅参考，以官方发布为准
+    </div>
+  </aside>
+
+  <main id="map"></main>
+
+  <div id="detail">
+    <div class="hd"><h3>地块详情</h3><span class="x" id="closeDetail">×</span></div>
+    <div class="bd"></div>
+  </div>
+
+  <div id="loading"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="app.js?v=8"></script>
+</body>
+</html>
