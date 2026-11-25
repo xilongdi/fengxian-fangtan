@@ -11,6 +11,9 @@ var state = {
   planLayer: null, planOn: false, baseOn: true,
   selected: null, markers: null,
   drawn: {},           // key -> L.LayerGroup（该切片已绘制的图层）
+  queue: {},           // key -> 待加载
+  active: 0,           // 正在下载数
+  queueTotal: 0,
   viewKey: "",         // 上次绘制时的视野签名
   renderToken: 0,      // 防抖/取消用
   pendingTimer: null
@@ -141,34 +144,65 @@ function refresh(){
   loadVisibleTiles();
 }
 
-/* 异步加载视野内的切片，不阻塞任何交互 */
+/* 异步加载视野内的切片，不阻塞任何交互。限制并发，先加载视野中心的 */
+var MAX_CONCURRENT = 6;
 function loadVisibleTiles(){
   var keys = visibleTiles();
-  var need = keys.filter(function(k){ return !state.loaded[k] && !state.loading[k]; });
-  if(need.length === 0) return;
+  var need = keys.filter(function(k){ return !state.loaded[k] && !state.queue[k]; });
+  if(need.length === 0){ syncLoading(0,0); return; }
 
-  var done = 0, total = need.length;
-  need.forEach(function(k){
-    state.loading[k] = fetchJSON("data/t_"+k+".json")
-      .then(function(arr){
-        state.blocks[k] = arr;
-        state.loaded[k] = true;
-        delete state.loading[k];
-      })
-      .catch(function(){
-        state.loaded[k] = true;
-        delete state.loading[k];
-      })
-      .then(function(){
-        done++;
-        syncLoading(done, total);
-        // 该切片到了：如果它现在仍在视野内，只增量绘制它
-        if(isTileVisible(k)){
-          drawTile(k);
-        }
-      });
+  // 按距离视野中心排序，先加载用户正在看的地方
+  var c = lm.getCenter();
+  need.sort(function(a, b){
+    var ca = tileCenter(a), cb = tileCenter(b);
+    var da = Math.abs(ca[0]-c.lng) + Math.abs(ca[1]-c.lat);
+    var db = Math.abs(cb[0]-c.lng) + Math.abs(cb[1]-c.lat);
+    return da - db;
   });
-  syncLoading(0, total);
+
+  need.forEach(function(k){ state.queue[k] = 1; });
+  state.queueTotal = (state.queueTotal || 0) + need.length;
+  pumpQueue();
+}
+
+function tileCenter(k){
+  var tb = state.tileIndex[k];
+  if(!tb) return [0,0];
+  return [(tb.b[0]+tb.b[2])/2, (tb.b[1]+tb.b[3])/2];
+}
+
+function pumpQueue(){
+  var pending = Object.keys(state.queue).filter(function(k){ return !state.loading[k] && !state.loaded[k]; });
+  if(state.active >= MAX_CONCURRENT || pending.length === 0){
+    if(pending.length === 0 && !state.active) syncLoading(0,0);
+    return;
+  }
+  // 优先加载当前视野内的
+  pending.sort(function(a,b){ return (isTileVisible(b)?1:0) - (isTileVisible(a)?1:0); });
+  while(state.active < MAX_CONCURRENT && pending.length){
+    var k = pending.shift();
+    startLoad(k);
+  }
+}
+
+function startLoad(k){
+  state.active = (state.active || 0) + 1;
+  state.loading[k] = 1;
+  fetchJSON("data/t_"+k+".json")
+    .then(function(arr){
+      state.blocks[k] = arr;
+      state.loaded[k] = true;
+    })
+    .catch(function(){ state.loaded[k] = true; })
+    .then(function(){
+      delete state.loading[k];
+      delete state.queue[k];
+      state.active--;
+      state.queueTotal = Math.max(0, (state.queueTotal || 0) - 1);
+      syncLoading(0, state.queueTotal);
+      if(isTileVisible(k)) drawTile(k);
+      pumpQueue();
+    });
 }
 
 function syncLoading(done, total){
